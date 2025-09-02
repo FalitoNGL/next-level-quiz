@@ -1,8 +1,18 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PlayCircle, Trophy, Users, Clock, BookOpen, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+
+type Quiz = {
+  id: string;
+  title: string;
+  category: string;
+  description: string | null;
+  questions: number;
+};
 
 // Mock quiz data - would come from Supabase in full implementation
 const mockQuizzes = [
@@ -63,6 +73,47 @@ const getDifficultyColor = (difficulty: string) => {
 
 const Index = () => {
   const navigate = useNavigate();
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchQuizzes();
+  }, []);
+
+  const fetchQuizzes = async () => {
+    try {
+      const { data: quizzesData, error: quizzesError } = await supabase
+        .from('quizzes')
+        .select('*')
+        .eq('is_active', true);
+
+      if (quizzesError) throw quizzesError;
+
+      // Get question counts for each quiz
+      const quizzesWithCounts = await Promise.all(
+        (quizzesData || []).map(async (quiz) => {
+          const { count } = await supabase
+            .from('questions')
+            .select('*', { count: 'exact', head: true })
+            .eq('quiz_id', quiz.id);
+
+          return {
+            id: quiz.id,
+            title: quiz.title,
+            category: quiz.category,
+            description: quiz.description,
+            questions: count || 0
+          };
+        })
+      );
+
+      setQuizzes(quizzesWithCounts);
+    } catch (error) {
+      console.error('Error fetching quizzes:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleStartQuiz = (quizId: number) => {
     navigate(`/quiz/${quizId}`);
@@ -159,53 +210,63 @@ const Index = () => {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
-            {mockQuizzes.map((quiz, index) => (
-              <Card key={quiz.id} className="quiz-card group" style={{ animationDelay: `${index * 0.1}s` }}>
-                <CardHeader>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <CardTitle className="text-xl mb-2 group-hover:text-primary transition-colors">
-                        {quiz.title}
-                      </CardTitle>
-                      <CardDescription className="text-muted-foreground">
-                        {quiz.description}
-                      </CardDescription>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {isLoading ? (
+              // Loading skeleton
+              Array.from({ length: 3 }).map((_, index) => (
+                <Card key={index} className="quiz-card">
+                  <CardHeader>
+                    <div className="h-6 bg-muted rounded animate-pulse mb-2"></div>
+                    <div className="h-4 bg-muted rounded animate-pulse w-2/3 mb-4"></div>
+                    <div className="h-4 bg-muted rounded animate-pulse w-1/2"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-4 bg-muted rounded animate-pulse mb-4"></div>
+                    <div className="h-10 bg-muted rounded animate-pulse"></div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : quizzes.length === 0 ? (
+              <div className="col-span-full text-center py-8">
+                <p className="text-muted-foreground">Tidak ada kuis tersedia saat ini.</p>
+              </div>
+            ) : (
+              quizzes.map((quiz, index) => (
+                <Card key={quiz.id} className="quiz-card group" style={{ animationDelay: `${index * 0.1}s` }}>
+                  <CardHeader>
+                    <CardTitle className="text-xl mb-2 group-hover:text-primary transition-colors">
+                      {quiz.title}
+                    </CardTitle>
+                    <CardDescription className="text-muted-foreground mb-4">
+                      {quiz.description || "Test your knowledge with this quiz"}
+                    </CardDescription>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {quiz.category}
+                      </Badge>
                     </div>
-                  </div>
+                  </CardHeader>
                   
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    <Badge variant="outline" className="text-xs">
-                      {quiz.category}
-                    </Badge>
-                    <Badge className={getDifficultyColor(quiz.difficulty)}>
-                      {quiz.difficulty}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                
-                <CardContent>
-                  <div className="flex items-center justify-between text-sm text-muted-foreground mb-6">
-                    <div className="flex items-center">
-                      <BookOpen className="h-4 w-4 mr-1" />
-                      <span>{quiz.questions} pertanyaan</span>
+                  <CardContent>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-6">
+                      <div className="flex items-center">
+                        <BookOpen className="h-4 w-4 mr-1" />
+                        <span>{quiz.questions} pertanyaan</span>
+                      </div>
                     </div>
-                    <div className="flex items-center">
-                      <Clock className="h-4 w-4 mr-1" />
-                      <span>~{quiz.duration} menit</span>
-                    </div>
-                  </div>
-                  
-                  <Button 
-                    onClick={() => handleStartQuiz(quiz.id)}
-                    className="w-full btn-glow group-hover:scale-105 transition-transform"
-                  >
-                    <PlayCircle className="mr-2 h-4 w-4" />
-                    Mulai Quiz
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                    
+                    <Button 
+                      onClick={() => navigate(`/quiz/${quiz.id}`)}
+                      className="w-full btn-glow group-hover:scale-105 transition-transform"
+                    >
+                      <PlayCircle className="mr-2 h-4 w-4" />
+                      Mulai Quiz
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </div>
       </section>

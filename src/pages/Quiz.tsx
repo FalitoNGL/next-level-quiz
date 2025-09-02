@@ -5,56 +5,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle, XCircle, Clock, ArrowRight, ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 
-// Mock quiz data - would come from Supabase
-const mockQuizData = {
-  1: {
-    id: 1,
-    title: "JavaScript Fundamentals",
-    category: "Programming",
-    questions: [
-      {
-        id: 1,
-        question: "Apa output dari console.log(typeof null) di JavaScript?",
-        options: [
-          "null",
-          "undefined", 
-          "object",
-          "string"
-        ],
-        correctAnswer: 2,
-        explanation: "Ini adalah bug terkenal dalam JavaScript. typeof null mengembalikan 'object', bukan 'null'."
-      },
-      {
-        id: 2,
-        question: "Manakah cara yang benar untuk mendeklarasikan variabel dalam JavaScript ES6?",
-        options: [
-          "var name = 'John';",
-          "let name = 'John';",
-          "const name = 'John';",
-          "Semua jawaban benar"
-        ],
-        correctAnswer: 3,
-        explanation: "Semua cara tersebut valid, tetapi let dan const lebih direkomendasikan untuk ES6+."
-      },
-      {
-        id: 3,
-        question: "Apa itu closure dalam JavaScript?",
-        options: [
-          "Function yang dapat mengakses variabel dari scope luar",
-          "Method untuk menutup browser",
-          "Cara untuk menyembunyikan kode",
-          "Error handling mechanism"
-        ],
-        correctAnswer: 0,
-        explanation: "Closure memungkinkan function untuk mengakses variabel dari lexical scope-nya bahkan setelah outer function selesai dieksekusi."
-      }
-    ]
-  }
+type Quiz = {
+  id: string;
+  title: string;
+  category: string;
+  description?: string;
+  questions: Question[];
+};
+
+type Question = {
+  id: string;
+  question_text: string;
+  options: string[];
+  correct_answer: number;
+  explanation: string;
 };
 
 type QuestionResult = {
-  questionId: number;
+  questionId: string;
   selectedAnswer: number;
   isCorrect: boolean;
   timeSpent: number;
@@ -64,6 +34,8 @@ const Quiz = () => {
   const { quizId } = useParams();
   const navigate = useNavigate();
   
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
@@ -72,8 +44,68 @@ const Quiz = () => {
   const [timeRemaining, setTimeRemaining] = useState(300); // 5 minutes
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
 
-  const quiz = mockQuizData[parseInt(quizId || "1") as keyof typeof mockQuizData];
-  
+  useEffect(() => {
+    if (quizId) {
+      fetchQuizData(quizId);
+    }
+  }, [quizId]);
+
+  const fetchQuizData = async (id: string) => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch quiz details
+      const { data: quizData, error: quizError } = await supabase
+        .from('quizzes')
+        .select('*')
+        .eq('id', id)
+        .eq('is_active', true)
+        .single();
+
+      if (quizError) throw quizError;
+
+      // Fetch questions for this quiz
+      const { data: questionsData, error: questionsError } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('quiz_id', id)
+        .order('created_at');
+
+      if (questionsError) throw questionsError;
+
+      const formattedQuiz: Quiz = {
+        id: quizData.id,
+        title: quizData.title,
+        category: quizData.category,
+        description: quizData.description,
+        questions: questionsData.map(q => ({
+          id: q.id,
+          question_text: q.question_text,
+          options: q.options as string[],
+          correct_answer: q.correct_answer,
+          explanation: q.explanation
+        }))
+      };
+
+      setQuiz(formattedQuiz);
+    } catch (error) {
+      console.error('Error fetching quiz:', error);
+      // You could show a toast error here
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="p-8 text-center">
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold">Memuat quiz...</h2>
+        </Card>
+      </div>
+    );
+  }
+
   if (!quiz) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -116,7 +148,7 @@ const Quiz = () => {
     setShowResult(true);
 
     const timeSpent = Date.now() - questionStartTime;
-    const isCorrect = answerIndex === currentQuestion.correctAnswer;
+    const isCorrect = answerIndex === currentQuestion.correct_answer;
     
     const result: QuestionResult = {
       questionId: currentQuestion.id,
@@ -166,11 +198,11 @@ const Quiz = () => {
         : "answer-button";
     }
     
-    if (index === currentQuestion.correctAnswer) {
+    if (index === currentQuestion.correct_answer) {
       return "answer-button correct";
     }
     
-    if (selectedAnswer === index && index !== currentQuestion.correctAnswer) {
+    if (selectedAnswer === index && index !== currentQuestion.correct_answer) {
       return "answer-button incorrect";
     }
     
@@ -209,7 +241,7 @@ const Quiz = () => {
         <Card className="mb-6 animate-fade-slide-up">
           <CardHeader>
             <CardTitle className="text-xl leading-relaxed">
-              {currentQuestion.question}
+              {currentQuestion.question_text}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -226,10 +258,10 @@ const Quiz = () => {
                       {String.fromCharCode(65 + index)}
                     </div>
                     <span className="text-left">{option}</span>
-                    {showResult && index === currentQuestion.correctAnswer && (
+                    {showResult && index === currentQuestion.correct_answer && (
                       <CheckCircle className="h-5 w-5 ml-auto text-green-500" />
                     )}
-                    {showResult && selectedAnswer === index && index !== currentQuestion.correctAnswer && (
+                    {showResult && selectedAnswer === index && index !== currentQuestion.correct_answer && (
                       <XCircle className="h-5 w-5 ml-auto text-red-500" />
                     )}
                   </div>
