@@ -171,14 +171,14 @@ const Results = () => {
                             <XCircle className="h-5 w-5 text-error" />
                           )}
                         </div>
-                        <h4 className="font-medium mb-3">{question.question}</h4>
+                        <h4 className="font-medium mb-3">{question.question_text}</h4>
                       </div>
                     </div>
                     
                     <div className="grid gap-2">
                       {question.options.map((option: string, optionIndex: number) => {
                         const isSelected = result?.selectedAnswer === optionIndex;
-                        const isCorrectOption = optionIndex === question.correctAnswer;
+                        const isCorrectOption = optionIndex === question.correct_answer;
                         
                         let className = "p-3 rounded border text-sm ";
                         
