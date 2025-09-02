@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,6 +49,34 @@ const Quiz = () => {
       fetchQuizData(quizId);
     }
   }, [quizId]);
+
+  const handleQuizComplete = useCallback(() => {
+    const correctAnswers = results.filter(r => r.isCorrect).length;
+    const score = Math.round((correctAnswers / quiz?.questions.length || 0) * 100);
+    
+    navigate("/results", { 
+      state: { 
+        quiz, 
+        results, 
+        score,
+        totalQuestions: quiz?.questions.length || 0
+      } 
+    });
+  }, [results, quiz, navigate]);
+
+  // Timer countdown - moved before early returns
+  useEffect(() => {
+    if (timeRemaining <= 0) {
+      handleQuizComplete();
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setTimeRemaining(prev => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeRemaining, handleQuizComplete]);
 
   const fetchQuizData = async (id: string) => {
     try {
@@ -117,22 +145,8 @@ const Quiz = () => {
     );
   }
 
-  const currentQuestion = quiz.questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100;
-
-  // Timer countdown
-  useEffect(() => {
-    if (timeRemaining <= 0) {
-      handleQuizComplete();
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setTimeRemaining(prev => prev - 1);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [timeRemaining]);
+  const currentQuestion = quiz?.questions[currentQuestionIndex];
+  const progress = quiz ? ((currentQuestionIndex + 1) / quiz.questions.length) * 100 : 0;
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -141,7 +155,7 @@ const Quiz = () => {
   };
 
   const handleAnswerSelect = (answerIndex: number) => {
-    if (isAnswered) return;
+    if (isAnswered || !currentQuestion) return;
     
     setSelectedAnswer(answerIndex);
     setIsAnswered(true);
@@ -166,7 +180,7 @@ const Quiz = () => {
   };
 
   const handleNextQuestion = () => {
-    if (currentQuestionIndex < quiz.questions.length - 1) {
+    if (quiz && currentQuestionIndex < quiz.questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
       setSelectedAnswer(null);
       setShowResult(false);
@@ -177,26 +191,14 @@ const Quiz = () => {
     }
   };
 
-  const handleQuizComplete = () => {
-    const correctAnswers = results.filter(r => r.isCorrect).length;
-    const score = Math.round((correctAnswers / quiz.questions.length) * 100);
-    
-    navigate("/results", { 
-      state: { 
-        quiz, 
-        results, 
-        score,
-        totalQuestions: quiz.questions.length 
-      } 
-    });
-  };
-
   const getAnswerClass = (index: number) => {
     if (!showResult) {
       return selectedAnswer === index 
         ? "answer-button border-primary bg-primary/10" 
         : "answer-button";
     }
+    
+    if (!currentQuestion) return "answer-button disabled";
     
     if (index === currentQuestion.correct_answer) {
       return "answer-button correct";
@@ -238,46 +240,48 @@ const Quiz = () => {
         </Card>
 
         {/* Question Card */}
-        <Card className="mb-6 animate-fade-slide-up">
-          <CardHeader>
-            <CardTitle className="text-xl leading-relaxed">
-              {currentQuestion.question_text}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4">
-              {currentQuestion.options.map((option, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleAnswerSelect(index)}
-                  className={getAnswerClass(index)}
-                  disabled={isAnswered}
-                >
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full border-2 border-current flex items-center justify-center mr-4 font-semibold">
-                      {String.fromCharCode(65 + index)}
+        {currentQuestion && (
+          <Card className="mb-6 animate-fade-slide-up">
+            <CardHeader>
+              <CardTitle className="text-xl leading-relaxed">
+                {currentQuestion.question_text}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                {currentQuestion.options.map((option, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleAnswerSelect(index)}
+                    className={getAnswerClass(index)}
+                    disabled={isAnswered}
+                  >
+                    <div className="flex items-center">
+                      <div className="w-8 h-8 rounded-full border-2 border-current flex items-center justify-center mr-4 font-semibold">
+                        {String.fromCharCode(65 + index)}
+                      </div>
+                      <span className="text-left">{option}</span>
+                      {showResult && index === currentQuestion.correct_answer && (
+                        <CheckCircle className="h-5 w-5 ml-auto text-green-500" />
+                      )}
+                      {showResult && selectedAnswer === index && index !== currentQuestion.correct_answer && (
+                        <XCircle className="h-5 w-5 ml-auto text-red-500" />
+                      )}
                     </div>
-                    <span className="text-left">{option}</span>
-                    {showResult && index === currentQuestion.correct_answer && (
-                      <CheckCircle className="h-5 w-5 ml-auto text-green-500" />
-                    )}
-                    {showResult && selectedAnswer === index && index !== currentQuestion.correct_answer && (
-                      <XCircle className="h-5 w-5 ml-auto text-red-500" />
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {/* Explanation */}
-            {showResult && (
-              <div className="mt-6 p-4 bg-muted/50 rounded-lg animate-fade-slide-up">
-                <h4 className="font-semibold mb-2 text-primary">Penjelasan:</h4>
-                <p className="text-muted-foreground">{currentQuestion.explanation}</p>
+                  </button>
+                ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
+
+              {/* Explanation */}
+              {showResult && (
+                <div className="mt-6 p-4 bg-muted/50 rounded-lg animate-fade-slide-up">
+                  <h4 className="font-semibold mb-2 text-primary">Penjelasan:</h4>
+                  <p className="text-muted-foreground">{currentQuestion.explanation}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Navigation */}
         <div className="flex justify-between items-center">
