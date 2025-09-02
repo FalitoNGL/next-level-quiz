@@ -134,11 +134,11 @@ const Quiz = () => {
     );
   }
 
-  if (!quiz) {
+  if (!quiz || !quiz.questions || quiz.questions.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="p-8 text-center">
-          <h2 className="text-2xl font-bold mb-4">Quiz tidak ditemukan</h2>
+          <h2 className="text-2xl font-bold mb-4">Quiz tidak ditemukan atau tidak memiliki pertanyaan</h2>
           <Button onClick={() => navigate("/")}>Kembali ke Beranda</Button>
         </Card>
       </div>
@@ -299,7 +299,7 @@ const Quiz = () => {
               onClick={handleNextQuestion}
               className="btn-glow flex items-center"
             >
-              {currentQuestionIndex < quiz.questions.length - 1 ? "Pertanyaan Selanjutnya" : "Lihat Hasil"}
+              {quiz && currentQuestionIndex < quiz.questions.length - 1 ? "Pertanyaan Selanjutnya" : "Lihat Hasil"}
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           )}
