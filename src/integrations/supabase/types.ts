@@ -14,7 +14,142 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          display_name: string | null
+          id: string
+          updated_at: string | null
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id: string
+          updated_at?: string | null
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          updated_at?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
+      questions: {
+        Row: {
+          correct_answer: number
+          created_at: string | null
+          explanation: string | null
+          id: string
+          options: Json
+          question_text: string
+          quiz_id: string | null
+        }
+        Insert: {
+          correct_answer: number
+          created_at?: string | null
+          explanation?: string | null
+          id?: string
+          options: Json
+          question_text: string
+          quiz_id?: string | null
+        }
+        Update: {
+          correct_answer?: number
+          created_at?: string | null
+          explanation?: string | null
+          id?: string
+          options?: Json
+          question_text?: string
+          quiz_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_results: {
+        Row: {
+          answers: Json
+          completed_at: string | null
+          id: string
+          percentage: number
+          quiz_id: string | null
+          score: number
+          total_questions: number
+          user_id: string | null
+        }
+        Insert: {
+          answers: Json
+          completed_at?: string | null
+          id?: string
+          percentage: number
+          quiz_id?: string | null
+          score: number
+          total_questions: number
+          user_id?: string | null
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string | null
+          id?: string
+          percentage?: number
+          quiz_id?: string | null
+          score?: number
+          total_questions?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_results_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quizzes: {
+        Row: {
+          category: Database["public"]["Enums"]["quiz_category"]
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["quiz_category"]
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["quiz_category"]
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +158,12 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      quiz_category:
+        | "Programming"
+        | "Science"
+        | "History"
+        | "Math"
+        | "General Knowledge"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +290,14 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      quiz_category: [
+        "Programming",
+        "Science",
+        "History",
+        "Math",
+        "General Knowledge",
+      ],
+    },
   },
 } as const
