@@ -155,7 +155,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_quiz_questions_for_results: {
+        Args: { quiz_uuid: string }
+        Returns: {
+          correct_answer: number
+          created_at: string
+          explanation: string
+          id: string
+          options: Json
+          question_text: string
+          quiz_id: string
+        }[]
+      }
+      get_quiz_questions_for_taking: {
+        Args: { quiz_uuid: string }
+        Returns: {
+          created_at: string
+          id: string
+          options: Json
+          question_text: string
+          quiz_id: string
+        }[]
+      }
     }
     Enums: {
       quiz_category:
