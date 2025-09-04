@@ -50,19 +50,41 @@ const Quiz = () => {
     }
   }, [quizId]);
 
-  const handleQuizComplete = useCallback(() => {
+  const handleQuizComplete = useCallback(async () => {
+    if (!quiz) return;
+    
     const correctAnswers = results.filter(r => r.isCorrect).length;
     const score = Math.round((correctAnswers / quiz?.questions.length || 0) * 100);
     
+    // Save quiz results to database first
+    try {
+      const { error } = await supabase
+        .from('quiz_results')
+        .insert({
+          quiz_id: quiz.id,
+          user_id: null, // Will be set by RLS if user is authenticated
+          score: correctAnswers,
+          percentage: score,
+          total_questions: quiz.questions.length,
+          answers: results
+        });
+
+      if (error) {
+        console.error('Error saving quiz results:', error);
+      }
+    } catch (error) {
+      console.error('Error saving quiz results:', error);
+    }
+    
     navigate("/results", { 
       state: { 
-        quiz, 
+        quizId: quiz.id,
         results, 
         score,
         totalQuestions: quiz?.questions.length || 0
       } 
     });
-  }, [results, quiz, navigate]);
+  }, [results, quiz, navigate, supabase]);
 
   // Timer countdown - moved before early returns
   useEffect(() => {
@@ -92,12 +114,9 @@ const Quiz = () => {
 
       if (quizError) throw quizError;
 
-      // Fetch questions for this quiz
+      // Fetch questions for quiz taking (without answers/explanations)
       const { data: questionsData, error: questionsError } = await supabase
-        .from('questions')
-        .select('*')
-        .eq('quiz_id', id)
-        .order('created_at');
+        .rpc('get_quiz_questions_for_taking', { quiz_uuid: id });
 
       if (questionsError) throw questionsError;
 
@@ -110,8 +129,8 @@ const Quiz = () => {
           id: q.id,
           question_text: q.question_text,
           options: q.options as string[],
-          correct_answer: q.correct_answer,
-          explanation: q.explanation
+          correct_answer: 0, // Placeholder - not available during quiz taking
+          explanation: "" // Placeholder - not available during quiz taking
         }))
       };
 
@@ -162,12 +181,13 @@ const Quiz = () => {
     setShowResult(true);
 
     const timeSpent = Date.now() - questionStartTime;
-    const isCorrect = answerIndex === currentQuestion.correct_answer;
+    // We can't determine correctness during quiz taking since answers are hidden
+    // This will be calculated on the server side for security
     
     const result: QuestionResult = {
       questionId: currentQuestion.id,
       selectedAnswer: answerIndex,
-      isCorrect,
+      isCorrect: false, // Placeholder - will be determined server-side
       timeSpent
     };
     
@@ -192,23 +212,11 @@ const Quiz = () => {
   };
 
   const getAnswerClass = (index: number) => {
-    if (!showResult) {
-      return selectedAnswer === index 
-        ? "answer-button border-primary bg-primary/10" 
-        : "answer-button";
-    }
-    
-    if (!currentQuestion) return "answer-button disabled";
-    
-    if (index === currentQuestion.correct_answer) {
-      return "answer-button correct";
-    }
-    
-    if (selectedAnswer === index && index !== currentQuestion.correct_answer) {
-      return "answer-button incorrect";
-    }
-    
-    return "answer-button disabled";
+    // During quiz taking, we only show selection state
+    // No correct/incorrect indication since answers are hidden for security
+    return selectedAnswer === index 
+      ? "answer-button border-primary bg-primary/10" 
+      : "answer-button";
   };
 
   return (
@@ -256,32 +264,18 @@ const Quiz = () => {
                     className={getAnswerClass(index)}
                     disabled={isAnswered}
                   >
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 rounded-full border-2 border-current flex items-center justify-center mr-4 font-semibold">
-                        {String.fromCharCode(65 + index)}
-                      </div>
-                      <span className="text-left">{option}</span>
-                      {showResult && index === currentQuestion.correct_answer && (
-                        <CheckCircle className="h-5 w-5 ml-auto text-green-500" />
-                      )}
-                      {showResult && selectedAnswer === index && index !== currentQuestion.correct_answer && (
-                        <XCircle className="h-5 w-5 ml-auto text-red-500" />
-                      )}
-                    </div>
+                     <div className="flex items-center">
+                       <div className="w-8 h-8 rounded-full border-2 border-current flex items-center justify-center mr-4 font-semibold">
+                         {String.fromCharCode(65 + index)}
+                       </div>
+                       <span className="text-left">{option}</span>
+                     </div>
                   </button>
                 ))}
-              </div>
-
-              {/* Explanation */}
-              {showResult && (
-                <div className="mt-6 p-4 bg-muted/50 rounded-lg animate-fade-slide-up">
-                  <h4 className="font-semibold mb-2 text-primary">Penjelasan:</h4>
-                  <p className="text-muted-foreground">{currentQuestion.explanation}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+               </div>
+             </CardContent>
+           </Card>
+         )}
 
         {/* Navigation */}
         <div className="flex justify-between items-center">
