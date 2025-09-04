@@ -159,7 +159,7 @@ const Index = () => {
             Bergabunglah dengan platform kuis interaktif yang menantang dan menyenangkan. Uji pengetahuan Anda dan pelajari hal baru setiap hari.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-slide-up" style={{ animationDelay: "0.4s" }}>
-            <Button size="lg" className="btn-glow text-lg px-8 py-6">
+            <Button size="lg" className="btn-glow text-lg px-8 py-6" onClick={() => document.getElementById('quizzes')?.scrollIntoView({ behavior: 'smooth' })} aria-label="Mulai Quiz Sekarang">
               <PlayCircle className="mr-2 h-5 w-5" />
               Mulai Quiz Sekarang
             </Button>
@@ -201,7 +201,7 @@ const Index = () => {
       </section>
 
       {/* Quiz Collection */}
-      <section className="py-16 px-4">
+      <section id="quizzes" className="py-16 px-4" aria-label="Koleksi Quiz">
         <div className="container mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4">Quiz Populer</h2>
